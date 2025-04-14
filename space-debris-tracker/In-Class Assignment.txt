@@ -1,0 +1,247 @@
+import java.io.*;
+import java.nio.file.*;
+
+// Class representing a simple bank account with basic operations and file persistence
+class BankAccount {
+  private final String accountType;  // Type of the account (e.g., Checking, Savings)
+  private final int accountNumber;  // Unique identifier for the account
+  private final String accountHolder; // Name of the account holder
+  private double balance;       // Current balance in the account
+  private final String password;   // Password for account authentication
+  private final String filePath;   // Path for saving/loading account data
+
+  // Constructor initializes a new BankAccount instance
+  public BankAccount(String accountType, int accountNumber, String accountHolder, double balance, String password) {
+    this.accountType = accountType;
+    this.accountNumber = accountNumber;
+    this.accountHolder = accountHolder;
+    this.balance = balance;
+    this.password = password;
+    this.filePath = accountHolder + ".txt";
+  }
+
+  // Static method to load an account from a file based on the username
+  public static BankAccount loadAccount(String username) {
+    String fileName = username + ".txt";
+    if (!Files.exists(Paths.get(fileName))) return null;
+
+    try (BufferedReader reader = Files.newBufferedReader(Paths.get(fileName))) {
+      String accountType = reader.readLine();
+      int accountNumber = Integer.parseInt(reader.readLine());
+      String accountHolder = reader.readLine();
+      double balance = Double.parseDouble(reader.readLine());
+      String password = reader.readLine();
+      return new BankAccount(accountType, accountNumber, accountHolder, balance, password);
+    } catch (IOException | NumberFormatException e) {
+      System.err.println("Error loading account: " + e.getMessage());
+      return null;
+    }
+  }
+
+  // Saves the current state of the account to a file
+  public void saveAccount() {
+    try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(filePath))) {
+      writer.write(accountType + "\n" + accountNumber + "\n" + accountHolder + "\n" + balance + "\n" + password);
+    } catch (IOException e) {
+      System.err.println("Error saving account: " + e.getMessage());
+    }
+  }
+
+  // Checks if the provided password matches the stored password
+  public boolean checkPassword(String inputPassword) {
+    return this.password.equals(inputPassword);
+  }
+
+  // Returns the current account balance
+  public double getBalance() {
+    return balance;
+  }
+
+  // Deposits a specified amount after converting from given currency to USD
+  public void deposit(double amount, String currencyName) {
+    balance += convertCurrency(amount, currencyName);
+    saveAccount();
+  }
+
+  // Attempts to withdraw a specified amount after currency conversion
+  // Returns true if successful, false if insufficient funds
+  public boolean withdraw(double amount, String currencyName) {
+    double convertedAmount = convertCurrency(amount, currencyName);
+    if (convertedAmount <= balance) {
+      balance -= convertedAmount;
+      saveAccount();
+      return true;
+    }
+    return false;
+  }
+
+  // Helper method to convert currencies to USD (basic simulation)
+  private double convertCurrency(double amount, String currencyName) {
+    currencyName = currencyName.toUpperCase();
+    if (currencyName.equals("CAD")) return amount * 0.8; // Canadian dollars to USD
+    if (currencyName.equals("EURO")) return amount * 1.2; // Euros to USD
+    return amount; // Assumes USD if currency not recognized
+  }
+
+  // Retrieves the account holder's name
+  public String getHolderName() {
+    return accountHolder;
+  }
+}
+
+
+
+
+
+
+
+And
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+// GUI application for BankAccount using Java Swing
+public class BankAppGUI {
+
+  // Entry point for the application
+  public static void main(String[] args) {
+    new BankAppGUI();
+  }
+
+  // GUI components
+  private JFrame frame;
+  private JTextField usernameField;
+  private JPasswordField passwordField;
+  private JLabel loginMessage;
+  private BankAccount account;
+
+  // Constructor initializes the GUI and accounts
+  public BankAppGUI() {
+    initializeAccounts();
+    createLoginGUI();
+  }
+
+  // Creates default accounts if they don't already exist
+  private void initializeAccounts() {
+    createAccountIfNotExists("Mike", "Checking", 1001, 500.0, "Gannon123");
+    createAccountIfNotExists("Bob", "Savings", 1002, 1000.0, "pass123");
+  }
+
+  // Helper method to check and create an account file
+  private void createAccountIfNotExists(String username, String type, int number, double balance, String password) {
+    if (BankAccount.loadAccount(username) == null) {
+      new BankAccount(type, number, username, balance, password).saveAccount();
+    }
+  }
+
+  // Sets up the login interface
+  private void createLoginGUI() {
+    frame = new JFrame("Bank Account Access");
+    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    frame.setSize(600, 400);
+    frame.setLayout(new GridLayout(4, 1));
+
+    Font largeFont = new Font("Arial", Font.BOLD, 24);
+
+    usernameField = new JTextField(15);
+    passwordField = new JPasswordField(15);
+
+    frame.add(createLabeledPanel("Username:", usernameField, largeFont));
+    frame.add(createLabeledPanel("Password:", passwordField, largeFont));
+
+    JButton loginButton = new JButton("Login");
+    loginButton.setFont(largeFont);
+    loginButton.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        handleLogin();
+      }
+    });
+
+    JPanel buttonPanel = new JPanel();
+    buttonPanel.add(loginButton);
+    frame.add(buttonPanel);
+
+    loginMessage = new JLabel("", SwingConstants.CENTER);
+    loginMessage.setFont(largeFont);
+    frame.add(loginMessage);
+
+    frame.setVisible(true);
+  }
+
+  // Creates a panel with a label and input field
+  private JPanel createLabeledPanel(String labelText, JTextField textField, Font font) {
+    JPanel panel = new JPanel();
+    JLabel label = new JLabel(labelText);
+    label.setFont(font);
+    textField.setFont(font);
+    panel.add(label);
+    panel.add(textField);
+    return panel;
+  }
+
+  // Handles login logic and transitions to account view if successful
+  private void handleLogin() {
+    String username = usernameField.getText();
+    String inputPassword = new String(passwordField.getPassword());
+
+    account = BankAccount.loadAccount(username);
+    if (account != null && account.checkPassword(inputPassword)) {
+      loginMessage.setText("Login Successful!");
+      switchToAccountGUI();
+    } else {
+      loginMessage.setText("Invalid username or password.");
+    }
+  }
+
+  // Switches GUI to display account details and deposit options
+  private void switchToAccountGUI() {
+    frame.getContentPane().removeAll();
+    frame.setLayout(new GridLayout(3, 1));
+
+    Font largeFont = new Font("Arial", Font.BOLD, 24);
+    JLabel balanceLabel = new JLabel("Balance: $" + account.getBalance(), SwingConstants.CENTER);
+    balanceLabel.setFont(largeFont);
+
+    frame.add(new JLabel("Account Holder: " + account.getHolderName(), SwingConstants.CENTER));
+    frame.add(balanceLabel);
+    frame.add(createDepositPanel(balanceLabel, largeFont));
+
+    frame.revalidate();
+    frame.repaint();
+  }
+
+  // Creates a deposit panel with input fields and action button
+  private JPanel createDepositPanel(JLabel balanceLabel, Font font) {
+    JPanel panel = new JPanel();
+    JTextField depositField = new JTextField(10);
+    JTextField currencyField = new JTextField(5);
+    JButton depositButton = new JButton("Deposit");
+
+    depositField.setFont(font);
+    currencyField.setFont(font);
+    depositButton.setFont(font);
+
+    depositButton.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        try {
+          double amount = Double.parseDouble(depositField.getText());
+          String currency = currencyField.getText().toUpperCase();
+          account.deposit(amount, currency);
+          balanceLabel.setText("Balance: $" + account.getBalance());
+        } catch (NumberFormatException ex) {
+          JOptionPane.showMessageDialog(frame, "Invalid amount entered.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+      }
+    });
+
+    panel.add(new JLabel("Amount:"));
+    panel.add(depositField);
+    panel.add(new JLabel("Currency:"));
+    panel.add(currencyField);
+    panel.add(depositButton);
+
+    return panel;
+  }
+}
